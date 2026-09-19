@@ -1,0 +1,22 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+    publisher-confirm-type: correlated
+    publisher-returns: true
+
+sentinel:
+  gateway:
+    default-branch: main
+    github-webhook-secret: ${GITHUB_WEBHOOK_SECRET}
+
+logging:
+  level:
+    com.sentinel: INFO

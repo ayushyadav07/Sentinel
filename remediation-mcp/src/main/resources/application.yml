@@ -1,0 +1,44 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: remediation-mcp
+  ai:
+    mcp:
+      server:
+        name: sentinel-remediation-mcp
+        version: 1.0.0
+        type: SYNC
+        instructions: >
+          Exposes remediation actions as MCP tools. Call raise_fix_pr with a set of findings to
+          have safe dependency bumps opened as a PR and everything else filed as a tracking
+          issue. send_email_alert is a last-resort fallback channel only.
+        capabilities:
+          tool: true
+        sse-message-endpoint: /mcp/messages
+  mail:
+    host: ${SMTP_HOST:smtp.gmail.com}
+    port: ${SMTP_PORT:587}
+    username: ${SMTP_USERNAME:}
+    password: ${SMTP_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+sentinel:
+  notify:
+    from-address: ${ALERT_FROM_ADDRESS:sentinel-agent@example.com}
+
+logging:
+  level:
+    com.sentinel: INFO
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health

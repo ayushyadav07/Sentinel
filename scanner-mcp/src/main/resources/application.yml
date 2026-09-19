@@ -1,0 +1,34 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: scanner-mcp
+  ai:
+    mcp:
+      server:
+        name: sentinel-scanner-mcp
+        version: 1.0.0
+        type: SYNC
+        instructions: >
+          Exposes repository vulnerability scanning as MCP tools. Call scan_repository with a
+          git URL to get back a normalized list of findings, then get_severity_summary to decide
+          whether remediation action is warranted.
+        capabilities:
+          tool: true
+        sse-message-endpoint: /mcp/messages
+
+sentinel:
+  scanner:
+    grype-binary: ${GRYPE_BINARY:grype}
+    timeout-seconds: ${SCAN_TIMEOUT_SECONDS:120000}
+
+logging:
+  level:
+    com.sentinel: INFO
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health

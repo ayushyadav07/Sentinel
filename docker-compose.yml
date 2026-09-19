@@ -1,0 +1,99 @@
+version: "3.9"
+
+services:
+
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: sentinel
+      POSTGRES_USER: sentinel
+      POSTGRES_PASSWORD: sentinel
+    ports:
+      - "5433:5433"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sentinel"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  scanner-mcp:
+    build: ./scanner-mcp
+    ports:
+      - "8081:8081"
+    environment:
+      SCAN_TIMEOUT_SECONDS: 120000
+    volumes:
+      - grype-cache:/root/.cache/grype
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  remediation-mcp:
+    build: ./remediation-mcp
+    ports:
+      - "8082:8082"
+    environment:
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+      ALERT_FROM_ADDRESS: ${ALERT_FROM_ADDRESS:-sentinel-agent@example.com}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8082/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  api-gateway:
+    build: ./api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  orchestrator-worker:
+    build: ./orchestrator-worker
+    ports:
+      - "8083:8083"
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      DB_URL: jdbc:postgresql://postgres:5432/sentinel
+      DB_USERNAME: sentinel
+      DB_PASSWORD: sentinel
+      SCANNER_MCP_URL: http://scanner-mcp:8081
+      REMEDIATION_MCP_URL: http://remediation-mcp:8082
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      scanner-mcp:
+        condition: service_healthy
+      remediation-mcp:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  grype-cache:
