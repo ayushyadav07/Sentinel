@@ -8,35 +8,35 @@ Gemini itself, not by hardcoded Java control flow — Sentinel is a genuine tool
 not a fixed pipeline with an LLM bolted on for text generation.
 
 ```
-                                                         RabbitMQ (work queue, one job at a time)
-                                                                        │
-                                                                        ▼
-┌───────────────┐   scan.jobs.queue    ┌──────────────────────────────────────┐
-│  api-gateway    │ ───────────────────▶ │  orchestrator-worker                  │
-│  (port 8080)    │                     │  (port 8083)                           │
-│                 │                     │  prefetch=1, concurrency=1              │
-│  POST           │                     │                                        │
-│  /scans/trigger  │                     │  AgenticRemediationAgent (Gemini)      │
-│  (manual entry   │                     │  holds ALL 4 MCP tools below and        │
-│  point)          │                     │  decides itself which to call, when,    │
-└───────────────┘                     │  and with what arguments -- governed    │
-                                       │  only by a system-prompt policy, not    │
-                                       │  by Java if/else logic.                 │
-                                       │                                         │
-                                       │  Persists a ScanRun row (incl. the       │
-                                       │  agent's full transcript) to Postgres.  │
-                                       └───────────┬──────────────┬─────────────┘
-                                                    │              │
-                                     ┌──────────────▼───┐   ┌──────▼────────────────────┐
-                                     │  scanner-mcp        │   │  remediation-mcp            │
-                                     │  (port 8081)         │   │  (port 8082)                 │
-                                     │  wraps Grype          │   │  wraps GitHub REST API       │
-                                     │                       │   │                              │
-                                     │  tools:               │   │  tools:                      │
-                                     │  - scan_repository     │   │  - raise_fix_pr               │
-                                     │  - get_severity_summary│   │  - send_email_alert           │
-                                     └───────────────────────┘   │  (email is fallback-only)     │
-                                                                  └──────────────────────────────┘
+                                             RabbitMQ (work queue, one job at a time)
+                                                                │
+                                                                ▼
+┌─────────────────┐   scan.jobs.queue    ┌────────────────────────────────────────┐
+│  api-gateway    │ ───────────────────▶ │  orchestrator-worker                   │
+│  (port 8080)    │                      │  (port 8083)                           │
+│                 │                      │  prefetch=1, concurrency=1             │
+│  POST           │                      │                                        │
+│  /scans/trigger │                      │  AgenticRemediationAgent (Gemini)      │
+│  (manual entry  │                      │  holds ALL 4 MCP tools below and       │
+│  point)         │                      │  decides itself which to call, when,   │
+└─────────────────┘                      │  and with what arguments -- governed   │
+                                         │  only by a system-prompt policy, not   │
+                                         │  by Java if/else logic.                │
+                                         │                                        │
+                                         │  Persists a ScanRun row (incl. the     │
+                                         │  agent's full transcript) to Postgres. │
+                                         └───────────┬───────────────────┬────────┘
+                                                     │                   │
+                                     ┌────────────── ▼────────┐   ┌──────▼────────────────────┐
+                                     │  scanner-mcp           │   │  remediation-mcp          │
+                                     │  (port 8081)           │   │  (port 8082)              │
+                                     │  wraps Grype           │   │  wraps GitHub REST API    │
+                                     │                        │   │                           │
+                                     │  tools:                │   │  tools:                   │
+                                     │  - scan_repository     │   │  - raise_fix_pr           │
+                                     │  - get_severity_summary│   │  - send_email_alert       │
+                                     └────────────────────────┘   │  (email is fallback-only) │
+                                                                  └───────────────────────────┘
 ```
 
 ## How the agentic flow actually works
